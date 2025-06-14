@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Middle East Geopolitical Map</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+        .node circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+        .node text {
+            pointer-events: none;
+            font-size: 12px;
+            fill: #e5e7eb;
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+        .link {
+            stroke-opacity: 0.6;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(31, 41, 55, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #4b5563;
+        }
+        .legend h4 {
+            margin: 0 0 10px 0;
+            color: #f9fafb;
+            font-weight: 600;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            background: #1f2937;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            color: #f9fafb;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="graph-container">
+        <div class="legend">
+            <h4>Factions & Alliances</h4>
+            <div class="legend-item"><div class="legend-color" style="background-color: #3b82f6;"></div><span>US & Allies</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #ef4444;"></div><span>Iran & Allies (Axis of Resistance)</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #eab308;"></div><span>Independent / Transactional</span></div>
+            <div class="legend-item"><div class="legend-color" style="background-color: #6b7280;"></div><span>Other Groups</span></div>
+            <h4 style="margin-top: 15px;">Relationships</h4>
+            <div class="legend-item"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" style="stroke: #10b981; stroke-width: 2;"></line></svg><span>Alliance / Support</span></div>
+            <div class="legend-item"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" style="stroke: #8b5cf6; stroke-width: 2; stroke-dasharray: 4 2;"></line></svg><span>Proxy / Backing</span></div>
+             <div class="legend-item"><svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" style="stroke: #f43f5e; stroke-width: 2; stroke-dasharray: 2 2;"></line></svg><span>Hostility / Rivalry</span></div>
+        </div>
+    </div>
+    <div class="tooltip"></div>
+
+    <script>
+        const nodes = [
+            // US & Allies
+            { id: "USA", group: "US & Allies", radius: 25 },
+            { id: "Israel", group: "US & Allies", radius: 20 },
+            { id: "Saudi Arabia", group: "US & Allies", radius: 22 },
+            { id: "UAE", group: "US & Allies", radius: 18 },
+            { id: "Egypt", group: "US & Allies", radius: 18 },
+            { id: "Jordan", group: "US & Allies", radius: 15 },
+            { id: "Bahrain", group: "US & Allies", radius: 15 },
+            { id: "SDF", group: "US & Allies", type: "Non-State", radius: 12 },
+
+            // Iran & Allies
+            { id: "Iran", group: "Iran & Allies", radius: 25 },
+            { id: "Syria (Gov't)", group: "Iran & Allies", radius: 20 },
+            { id: "Hezbollah", group: "Iran & Allies", type: "Non-State", radius: 15 },
+            { id: "Houthis", group: "Iran & Allies", type: "Non-State", radius: 15 },
+            { id: "Hamas", group: "Iran & Allies", type: "Non-State", radius: 12 },
+            { id: "Iraqi Shia Militias", group: "Iran & Allies", type: "Non-State", radius: 12 },
+            
+            // Independent / Transactional
+            { id: "Russia", group: "Independent", radius: 22 },
+            { id: "Turkey", group: "Independent", radius: 22 },
+            { id: "Qatar", group: "Independent", radius: 18 },
+            { id: "China", group: "Independent", radius: 20 },
+
+            // Other Groups
+            { id: "Syrian Nat'l Army", group: "Other", type: "Non-State", radius: 12 },
+            { id: "ISIS", group: "Other", type: "Non-State", radius: 10 },
+            { id: "Al-Qaeda", group: "Other", type: "Non-State", radius: 10 },
+        ];
+
+        const links = [
+            // US Relationships
+            { source: "USA", target: "Israel", type: "Alliance" },
+            { source: "USA", target: "Saudi Arabia", type: "Alliance" },
+            { source: "USA", target: "UAE", type: "Alliance" },
+            { source: "USA", target: "Egypt", type: "Alliance" },
+            { source: "USA", target: "Jordan", type: "Alliance" },
+            { source: "USA", target: "Bahrain", type: "Alliance" },
+            { source: "USA", target: "Qatar", type: "Alliance" }, // Base presence
+            { source: "USA", target: "SDF", type: "Proxy" },
+            { source: "USA", target: "Iran", type: "Hostility" },
+            { source: "USA", target: "Syria (Gov't)", type: "Hostility" },
+            { source: "USA", target: "Russia", type: "Hostility" },
+            { source: "USA", target: "China", type: "Hostility" },
+            { source: "USA", target: "Turkey", type: "Alliance" }, // NATO, but complex
+
+            // Iran Relationships
+            { source: "Iran", target: "Syria (Gov't)", type: "Alliance" },
+            { source: "Iran", target: "Hezbollah", type: "Proxy" },
+            { source: "Iran", target: "Houthis", type: "Proxy" },
+            { source: "Iran", target: "Hamas", type: "Proxy" },
+            { source: "Iran", target: "Iraqi Shia Militias", type: "Proxy" },
+            { source: "Iran", target: "Israel", type: "Hostility" },
+            { source: "Iran", target: "Saudi Arabia", type: "Hostility" },
+            { source: "Iran", target: "Bahrain", type: "Hostility" },
+            { source: "Iran", target: "Russia", type: "Alliance" },
+            { source: "Iran", target: "China", type: "Alliance" },
+
+            // Israel Relationships
+            { id: "Israel-AbrahamAccords1", source: "Israel", target: "UAE", type: "Alliance" },
+            { id: "Israel-AbrahamAccords2", source: "Israel", target: "Bahrain", type: "Alliance" },
+            { id: "Israel-Saudi", source: "Israel", target: "Saudi Arabia", type: "Alliance" }, // Informal
+            { source: "Israel", target: "Hezbollah", type: "Hostility" },
+            { source: "Israel", target: "Hamas", type: "Hostility" },
+            { source: "Israel", target: "Syria (Gov't)", type: "Hostility" },
+
+            // Saudi Relationships
+            { source: "Saudi Arabia", target: "Houthis", type: "Hostility" },
+            { source: "Saudi Arabia", target: "UAE", type: "Alliance" },
+            
+            // Turkey Relationships
+            { source: "Turkey", target: "Qatar", type: "Alliance" },
+            { source: "Turkey", target: "Syrian Nat'l Army", type: "Proxy" },
+            { source: "Turkey", target: "SDF", type: "Hostility" },
+            { source: "Turkey", target: "Syria (Gov't)", type: "Hostility" },
+            { source: "Turkey", target: "Russia", type: "Hostility" }, // Coopetition
+
+            // Russia Relationships
+            { source: "Russia", target: "Syria (Gov't)", type: "Alliance" },
+
+            // Intra-group hostilities
+            { source: "USA", target: "ISIS", type: "Hostility" },
+            { source: "USA", target: "Al-Qaeda", type: "Hostility" },
+            { source: "Iran", target: "ISIS", type: "Hostility" },
+            { source: "Russia", target: "ISIS", type: "Hostility" },
+            { source: "Saudi Arabia", target: "Al-Qaeda", type: "Hostility" },
+            { source: "Saudi Arabia", target: "ISIS", type: "Hostility" },
+        ];
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        const svg = d3.select("#graph-container").append("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        const tooltip = d3.select(".tooltip");
+
+        const color = d3.scaleOrdinal()
+            .domain(["US & Allies", "Iran & Allies", "Independent", "Other"])
+            .range(["#3b82f6", "#ef4444", "#eab308", "#6b7280"]);
+
+        const linkColor = d3.scaleOrdinal()
+            .domain(["Alliance", "Proxy", "Hostility"])
+            .range(["#10b981", "#8b5cf6", "#f43f5e"]);
+
+        const simulation = d3.forceSimulation(nodes)
+            .force("link", d3.forceLink(links).id(d => d.id).distance(150))
+            .force("charge", d3.forceManyBody().strength(-400))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("collision", d3.forceCollide().radius(d => d.radius + 10));
+
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(links)
+            .join("line")
+            .attr("class", "link")
+            .style("stroke", d => linkColor(d.type))
+            .style("stroke-width", 2)
+            .style("stroke-dasharray", d => d.type === "Proxy" ? "4 2" : d.type === "Hostility" ? "2 2" : "none");
+
+        const node = svg.append("g")
+            .selectAll("g")
+            .data(nodes)
+            .join("g")
+            .attr("class", "node")
+            .call(drag(simulation));
+
+        node.append("circle")
+            .attr("r", d => d.radius)
+            .attr("fill", d => color(d.group));
+
+        node.append("text")
+            .text(d => d.id)
+            .attr("y", d => -d.radius - 8);
+
+        node.on("mouseover", (event, d) => {
+            tooltip.style("opacity", 1)
+                   .html(d.id + (d.type ? `<br><span style='font-size:10px; color: #9ca3af;'>(${d.type})</span>` : ""))
+                   .style("left", (event.pageX + 10) + "px")
+                   .style("top", (event.pageY - 28) + "px");
+
+            link.style('stroke-opacity', l => (l.source === d || l.target === d) ? 1 : 0.1);
+            node.style('opacity', n => (isConnected(d, n)) ? 1 : 0.3);
+            d3.select(event.currentTarget).style('opacity', 1);
+
+        }).on("mouseout", () => {
+            tooltip.style("opacity", 0);
+            link.style('stroke-opacity', 0.6);
+            node.style('opacity', 1);
+        });
+
+        const linkedByIndex = {};
+        links.forEach(d => {
+            linkedByIndex[`${d.source.id},${d.target.id}`] = 1;
+        });
+
+        function isConnected(a, b) {
+            return linkedByIndex[`${a.id},${b.id}`] || linkedByIndex[`${b.id},${a.id}`] || a.id === b.id;
+        }
+
+
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        function drag(simulation) {
+            function dragstarted(event) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                event.subject.fx = event.subject.x;
+                event.subject.fy = event.subject.y;
+            }
+            function dragged(event) {
+                event.subject.fx = event.x;
+                event.subject.fy = event.y;
+            }
+            function dragended(event) {
+                if (!event.active) simulation.alphaTarget(0);
+                event.subject.fx = null;
+                event.subject.fy = null;
+            }
+            return d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended);
+        }
+
+        window.addEventListener('resize', () => {
+            const newWidth = window.innerWidth;
+            const newHeight = window.innerHeight;
+            svg.attr('width', newWidth).attr('height', newHeight);
+            simulation.force('center', d3.forceCenter(newWidth / 2, newHeight / 2));
+            simulation.alpha(0.3).restart();
+        });
+    </script>
+</body>
+</html>
